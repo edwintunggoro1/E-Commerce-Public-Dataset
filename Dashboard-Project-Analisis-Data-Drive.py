@@ -89,6 +89,7 @@ sum_order_items_df = create_sum_order_items_df(main_df)
 bystate_df = create_bystate_df(main_df)
 rfm_df = create_rfm_df(main_df)
 
+
 st.header('E-Commerce Dashboard :sparkles:')
 
 st.subheader('Daily Orders')
@@ -116,30 +117,53 @@ ax.tick_params(axis='x', labelsize=15)
  
 st.pyplot(fig)
 
-st.subheader("Best & Worst Performing Product")
- 
-fig, ax = plt.subplots(nrows=1, ncols=2, figsize=(35, 15))
- 
-colors = ["#90CAF9", "#D3D3D3", "#D3D3D3", "#D3D3D3", "#D3D3D3"]
- 
-sns.barplot(x="item_value", y="product_category_name_english", data=sum_order_items_df.head(5), palette=colors, ax=ax[0])
-ax[0].set_ylabel(None)
-ax[0].set_xlabel("Number of Sales", fontsize=30)
-ax[0].set_title("Best Performing Product", loc="center", fontsize=50)
-ax[0].tick_params(axis='y', labelsize=35)
-ax[0].tick_params(axis='x', labelsize=30)
- 
-sns.barplot(x="item_value", y="product_category_name_english", data=sum_order_items_df.sort_values(by="item_value", ascending=True).head(5), palette=colors, ax=ax[1])
-ax[1].set_ylabel(None)
-ax[1].set_xlabel("Number of Sales", fontsize=30)
-ax[1].invert_xaxis()
-ax[1].yaxis.set_label_position("right")
-ax[1].yaxis.tick_right()
-ax[1].set_title("Worst Performing Product", loc="center", fontsize=50)
-ax[1].tick_params(axis='y', labelsize=35)
-ax[1].tick_params(axis='x', labelsize=30)
- 
-st.pyplot(fig)
+st.subheader("Kategori Produk Terbanyak & Tersedikit Terjual")
+
+# Ambil Top 5 Most & Least
+top_5_most = sum_order_items_df.sort_values(by="item_value", ascending=False).head(5)
+top_5_least = sum_order_items_df.sort_values(by="item_value", ascending=True).head(5)
+
+# Buat 2 kolom
+col1, col2 = st.columns(2)
+
+# =========================
+# Chart 1: Top 5 terbanyak
+# =========================
+with col1:
+    st.markdown("### Top 5 Kategori Produk yang Paling Banyak Terjual")
+
+    fig1, ax1 = plt.subplots(figsize=(8, 6))
+
+    colors_most = ["red"] + ["lightblue"] * 4
+    ax1.bar(top_5_most["product_category_name_english"], top_5_most["item_value"], color=colors_most)
+
+    ax1.set_title("Top 5 Kategori Produk yang Paling Banyak Terjual")
+    ax1.set_xlabel("Product Category")
+    ax1.set_ylabel("Jumlah Order")
+    ax1.tick_params(axis='x', rotation=45)
+    plt.tight_layout()
+
+    st.pyplot(fig1)
+
+# =========================
+# Chart 2: Top 5 tersedikit
+# =========================
+with col2:
+    st.markdown("### Top 5 Kategori Produk yang Paling Sedikit Terjual")
+
+    fig2, ax2 = plt.subplots(figsize=(8, 6))
+
+    colors_least = ["red"] + ["lightblue"] * 4
+    ax2.bar(top_5_least["product_category_name_english"], top_5_least["item_value"], color=colors_least)
+
+    ax2.set_title("Top 5 Kategori Produk yang Paling Sedikit Terjual")
+    ax2.set_xlabel("Product Category")
+    ax2.set_ylabel("Jumlah Order")
+    ax2.tick_params(axis='x', rotation=45)
+    plt.tight_layout()
+
+    st.pyplot(fig2)
+
 
 st.subheader("Customer Demographics")
  
@@ -187,4 +211,52 @@ ax[2].tick_params(axis='x', labelsize=15, rotation=45)
 plt.suptitle("Best Customer Based on RFM Parameters (customer_id)", fontsize=20)
 plt.tight_layout(rect=[0, 0.03, 1, 0.95])
  
+st.pyplot(fig)
+
+st.subheader("Monthly Average Delivery Time Trend")
+
+# Copy df agar aman tidak mengubah dataframe utama
+df_orders = main_df.copy()
+
+# Buat kolom delivery_time (dalam hari)
+df_orders["delivery_time"] = (
+    df_orders["order_delivered_customer_date"] - df_orders["order_purchase_timestamp"]
+).dt.days
+
+# Filter data yang delivery_time-nya valid
+df_orders = df_orders.dropna(subset=["delivery_time"])
+df_orders = df_orders[df_orders["delivery_time"] >= 0]
+
+# Ekstrak tahun dan bulan
+df_orders.loc[:, "order_purchase_year"] = df_orders["order_purchase_timestamp"].dt.year
+df_orders.loc[:, "order_purchase_month"] = df_orders["order_purchase_timestamp"].dt.month
+
+# Monthly average delivery time
+monthly_avg_delivery_time = (
+    df_orders.groupby(["order_purchase_year", "order_purchase_month"])["delivery_time"]
+    .mean()
+    .reset_index()
+)
+
+# Gabungkan year-month menjadi tanggal (awal bulan)
+monthly_avg_delivery_time["order_date"] = pd.to_datetime(
+    monthly_avg_delivery_time["order_purchase_year"].astype(str)
+    + "-"
+    + monthly_avg_delivery_time["order_purchase_month"].astype(str)
+    + "-01"
+)
+
+# Sort agar garis tidak lompat-lompat
+monthly_avg_delivery_time = monthly_avg_delivery_time.sort_values("order_date")
+
+# Plot chart
+fig, ax = plt.subplots(figsize=(12, 6))
+sns.lineplot(data=monthly_avg_delivery_time, x="order_date", y="delivery_time", ax=ax)
+ax.set_title("Monthly Average Delivery Time Trend")
+ax.set_xlabel("Date")
+ax.set_ylabel("Average Delivery Time (Days)")
+ax.grid(True)
+plt.xticks(rotation=45)
+plt.tight_layout()
+
 st.pyplot(fig)
